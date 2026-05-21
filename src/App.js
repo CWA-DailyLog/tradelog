@@ -17,32 +17,27 @@ const fmt = (n) => {
 // ─── Styles ──────────────────────────────────────────────────────────
 const inputStyle = {
   width: "100%", padding: "10px 14px", borderRadius: 8,
-  border: "1px solid #2a2a2a", background: "#0d0d0d", color: "#e0e0e0",
+  border: "1px solid #2a2a2a", background: "#050505", color: "#e0e0e0",
   fontSize: 14, fontFamily: "'DM Mono',monospace", outline: "none",
   boxSizing: "border-box", transition: "border-color 0.15s",
 };
 
-// ─── P&L color intensity ─────────────────────────────────────────────
-function getPnlColor(pnl, maxAbs) {
-  if (pnl == null) return null;
-  const intensity = Math.min(Math.abs(pnl) / (maxAbs || 1), 1);
-  if (pnl > 0) {
-    const g = Math.round(120 + intensity * 80);
-    return { bg: `rgba(34,${g},80,${0.15 + intensity * 0.45})`, text: `rgb(40,${g},90)` };
-  } else {
-    const r = Math.round(160 + intensity * 80);
-    return { bg: `rgba(${r},40,50,${0.15 + intensity * 0.45})`, text: `rgb(${r},55,65)` };
-  }
+// ─── P&L color — text only, no background ────────────────────────────
+function getPnlTextColor(pnl) {
+  if (pnl == null) return "#e0e0e0";
+  if (pnl > 0) return "#4de894";
+  return "#ff6b78";
 }
 
 // ─── Log Trade Modal ─────────────────────────────────────────────────
-function LogTradeModal({ date, dateStr, onSave, onClose, existing }) {
+function LogTradeModal({ date, dateStr, onSave, onDelete, onClose, existing }) {
   const [symbol, setSymbol] = useState(existing?.symbol || "");
   const [side, setSide] = useState(existing?.side || "Long");
   const [pnl, setPnl] = useState(existing?.pnl?.toString() || "");
   const [numTrades, setNumTrades] = useState(existing?.num_trades?.toString() || "1");
   const [notes, setNotes] = useState(existing?.notes || "");
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const handleSave = async () => {
     if (!pnl) return;
@@ -52,14 +47,22 @@ function LogTradeModal({ date, dateStr, onSave, onClose, existing }) {
     onClose();
   };
 
+  const handleDelete = async () => {
+    if (!confirming) { setConfirming(true); return; }
+    await onDelete(existing.id);
+    onClose();
+  };
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex",
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex",
       alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(6px)" }}>
-      <div style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: 16,
-        padding: "32px", width: 420, boxShadow: "0 24px 80px rgba(0,0,0,0.9)" }}>
+      <div style={{ background: "#0e0e0e", border: "1px solid #222", borderRadius: 16,
+        padding: "32px", width: 420, boxShadow: "0 24px 80px rgba(0,0,0,0.95)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 18, fontWeight: 700,
-            color: "#f0f0f0", letterSpacing: "-0.02em" }}>Log Trade</span>
+            color: "#f0f0f0", letterSpacing: "-0.02em" }}>
+            {existing ? "Edit Entry" : "Log Trade"}
+          </span>
           <span style={{ color: "#444", fontSize: 12, fontFamily: "'DM Mono',monospace" }}>{date}</span>
         </div>
 
@@ -72,7 +75,7 @@ function LogTradeModal({ date, dateStr, onSave, onClose, existing }) {
                 <button key={s} onClick={() => setSide(s)} style={{
                   flex: 1, padding: "10px", borderRadius: 8, border: "1px solid", cursor: "pointer",
                   fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 600, transition: "all 0.15s",
-                  background: side === s ? (s === "Long" ? "rgba(34,160,80,0.2)" : "rgba(200,50,60,0.2)") : "transparent",
+                  background: side === s ? (s === "Long" ? "rgba(34,160,80,0.15)" : "rgba(200,50,60,0.15)") : "transparent",
                   borderColor: side === s ? (s === "Long" ? "#22a050" : "#c8323c") : "#2a2a2a",
                   color: side === s ? (s === "Long" ? "#4de894" : "#ff6b78") : "#555",
                 }}>{s}</button>
@@ -94,11 +97,22 @@ function LogTradeModal({ date, dateStr, onSave, onClose, existing }) {
         ))}
 
         <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+          {existing && (
+            <button onClick={handleDelete} style={{
+              flex: 1, padding: "12px", borderRadius: 10, border: "1px solid",
+              borderColor: confirming ? "#c8323c" : "#2a2a2a",
+              background: confirming ? "rgba(200,50,60,0.15)" : "transparent",
+              color: confirming ? "#ff6b78" : "#555",
+              cursor: "pointer", fontFamily: "'DM Mono',monospace", fontSize: 12,
+              transition: "all 0.2s" }}>
+              {confirming ? "Confirm Delete" : "Delete"}
+            </button>
+          )}
           <button onClick={onClose} style={{ flex: 1, padding: "12px", borderRadius: 10,
             border: "1px solid #2a2a2a", background: "transparent", color: "#555",
             cursor: "pointer", fontFamily: "'DM Mono',monospace", fontSize: 13 }}>Cancel</button>
           <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: "12px",
-            borderRadius: 10, border: "none", background: saving ? "#888" : "#f0f0f0",
+            borderRadius: 10, border: "none", background: saving ? "#555" : "#f0f0f0",
             color: "#0a0a0a", cursor: saving ? "not-allowed" : "pointer",
             fontFamily: "'Syne',sans-serif", fontSize: 14, fontWeight: 700 }}>
             {saving ? "Saving…" : "Save Entry"}
@@ -112,6 +126,7 @@ function LogTradeModal({ date, dateStr, onSave, onClose, existing }) {
 // ─── Auth Page ───────────────────────────────────────────────────────
 function AuthPage({ onAuth }) {
   const [mode, setMode] = useState("login");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -120,11 +135,15 @@ function AuthPage({ onAuth }) {
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) return;
+    if (mode === "signup" && !username.trim()) return;
     setLoading(true);
     setError("");
     try {
       if (mode === "signup") {
-        const { data, error: err } = await supabase.auth.signUp({ email, password });
+        const { data, error: err } = await supabase.auth.signUp({
+          email, password,
+          options: { data: { username: username.trim() } }
+        });
         if (err) throw err;
         if (data.user && !data.session) {
           setError("Check your email to confirm your account, then sign in.");
@@ -143,16 +162,27 @@ function AuthPage({ onAuth }) {
     setLoading(false);
   };
 
+  const signupFields = [
+    { label: "Username", value: username, set: setUsername, placeholder: "yourname", type: "text" },
+    { label: "Email", value: email, set: setEmail, placeholder: "you@example.com", type: "email" },
+    { label: "Password", value: password, set: setPassword, placeholder: "••••••••", type: "password" },
+  ];
+  const loginFields = [
+    { label: "Email", value: email, set: setEmail, placeholder: "you@example.com", type: "email" },
+    { label: "Password", value: password, set: setPassword, placeholder: "••••••••", type: "password" },
+  ];
+  const fields = mode === "signup" ? signupFields : loginFields;
+
   return (
-    <div style={{ minHeight: "100vh", background: "#080808", display: "flex", alignItems: "center",
+    <div style={{ minHeight: "100vh", background: "#040404", display: "flex", alignItems: "center",
       justifyContent: "center", fontFamily: "'Syne',sans-serif", position: "relative", overflow: "hidden" }}>
 
       <div style={{ position: "absolute", inset: 0,
-        backgroundImage: "linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)",
+        backgroundImage: "linear-gradient(rgba(255,255,255,0.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.018) 1px,transparent 1px)",
         backgroundSize: "64px 64px", pointerEvents: "none" }} />
       <div style={{ position: "absolute", top: "30%", left: "50%", transform: "translate(-50%,-50%)",
-        width: 600, height: 600,
-        background: "radial-gradient(circle,rgba(255,255,255,0.04) 0%,transparent 70%)", pointerEvents: "none" }} />
+        width: 500, height: 500,
+        background: "radial-gradient(circle,rgba(255,255,255,0.025) 0%,transparent 70%)", pointerEvents: "none" }} />
 
       <div style={{ position: "relative", width: 440, zIndex: 1 }}>
         <div style={{ textAlign: "center", marginBottom: 48 }}>
@@ -164,46 +194,43 @@ function AuthPage({ onAuth }) {
             <span style={{ fontSize: 22, fontWeight: 800, color: "#f0f0f0",
               letterSpacing: "-0.04em", textTransform: "uppercase" }}>TradeLog</span>
           </div>
-          <p style={{ marginTop: 12, color: "#3a3a3a", fontSize: 13,
+          <p style={{ marginTop: 12, color: "#2e2e2e", fontSize: 13,
             fontFamily: "'DM Mono',monospace", letterSpacing: "0.06em", textTransform: "uppercase" }}>
             {mode === "login" ? "Welcome back" : "Start your record"}
           </p>
         </div>
 
-        <div style={{ background: "#0f0f0f", border: "1px solid #1e1e1e", borderRadius: 20,
-          padding: "40px", boxShadow: "0 40px 120px rgba(0,0,0,0.6)" }}>
+        <div style={{ background: "#080808", border: "1px solid #181818", borderRadius: 20,
+          padding: "40px", boxShadow: "0 40px 120px rgba(0,0,0,0.8)" }}>
 
-          <div style={{ display: "flex", marginBottom: 32, background: "#0a0a0a",
-            borderRadius: 10, padding: 4, border: "1px solid #1a1a1a" }}>
+          <div style={{ display: "flex", marginBottom: 32, background: "#050505",
+            borderRadius: 10, padding: 4, border: "1px solid #161616" }}>
             {["login", "signup"].map(m => (
               <button key={m} onClick={() => { setMode(m); setError(""); }} style={{
                 flex: 1, padding: "9px", borderRadius: 7, border: "none", cursor: "pointer",
-                transition: "all 0.2s", background: mode === m ? "#1e1e1e" : "transparent",
-                color: mode === m ? "#f0f0f0" : "#3a3a3a", fontFamily: "'Syne',sans-serif",
+                transition: "all 0.2s", background: mode === m ? "#1a1a1a" : "transparent",
+                color: mode === m ? "#f0f0f0" : "#333", fontFamily: "'Syne',sans-serif",
                 fontSize: 13, fontWeight: 700, letterSpacing: "-0.01em" }}>
                 {m === "login" ? "Sign In" : "Create Account"}
               </button>
             ))}
           </div>
 
-          {[
-            { label: "Email", value: email, set: setEmail, placeholder: "you@example.com", type: "email" },
-            { label: "Password", value: password, set: setPassword, placeholder: "••••••••", type: "password" },
-          ].map(({ label, value, set, placeholder, type }) => (
+          {fields.map(({ label, value, set, placeholder, type }) => (
             <div key={label} style={{ marginBottom: 18 }}>
-              <label style={{ display: "block", fontSize: 11, color: "#3a3a3a",
+              <label style={{ display: "block", fontSize: 11, color: "#333",
                 fontFamily: "'DM Mono',monospace", letterSpacing: "0.1em",
                 textTransform: "uppercase", marginBottom: 8 }}>{label}</label>
               <input type={type} value={value} onChange={e => set(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleSubmit()}
                 placeholder={placeholder}
-                style={{ ...inputStyle, background: "#080808", width: "100%", fontSize: 15, color: "#e8e8e8" }} />
+                style={{ ...inputStyle, background: "#040404", width: "100%", fontSize: 15, color: "#e8e8e8" }} />
             </div>
           ))}
 
           {error && (
             <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8,
-              background: "rgba(200,50,60,0.1)", border: "1px solid rgba(200,50,60,0.2)",
+              background: "rgba(200,50,60,0.08)", border: "1px solid rgba(200,50,60,0.2)",
               color: "#ff6b78", fontSize: 13, fontFamily: "'DM Mono',monospace" }}>
               {error}
             </div>
@@ -212,17 +239,17 @@ function AuthPage({ onAuth }) {
           <button onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
             onClick={handleSubmit} disabled={loading}
             style={{ width: "100%", marginTop: 8, padding: "14px", borderRadius: 12, border: "none",
-              background: loading ? "#888" : hovered ? "#e0e0e0" : "#f0f0f0",
+              background: loading ? "#555" : hovered ? "#e0e0e0" : "#f0f0f0",
               color: "#080808", cursor: loading ? "not-allowed" : "pointer",
               fontFamily: "'Syne',sans-serif", fontSize: 15, fontWeight: 800, letterSpacing: "-0.02em",
               transform: hovered && !loading ? "translateY(-1px)" : "translateY(0)",
-              boxShadow: hovered && !loading ? "0 8px 24px rgba(255,255,255,0.12)" : "none",
+              boxShadow: hovered && !loading ? "0 8px 24px rgba(255,255,255,0.1)" : "none",
               transition: "all 0.18s" }}>
             {loading ? "Please wait…" : mode === "login" ? "Sign In →" : "Create Account →"}
           </button>
         </div>
 
-        <p style={{ textAlign: "center", marginTop: 24, fontSize: 11, color: "#222",
+        <p style={{ textAlign: "center", marginTop: 24, fontSize: 11, color: "#1e1e1e",
           fontFamily: "'DM Mono',monospace", letterSpacing: "0.05em" }}>
           Your journal. Your discipline. Your edge.
         </p>
@@ -231,8 +258,8 @@ function AuthPage({ onAuth }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500;600&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        input::placeholder { color: #2a2a2a; }
-        textarea::placeholder { color: #2a2a2a; }
+        input::placeholder { color: #222; }
+        textarea::placeholder { color: #222; }
       `}</style>
     </div>
   );
@@ -259,10 +286,10 @@ function Dashboard({ user, onLogout }) {
   const [modal, setModal] = useState(null);
   const [hoveredDay, setHoveredDay] = useState(null);
 
-  // Username display — use email prefix
-  const displayName = user.email?.split("@")[0] || "Trader";
+  // Get username from Supabase user metadata
+  const displayName = user.user_metadata?.username || user.email?.split("@")[0] || "Trader";
 
-  // Fetch trades for the current viewed month
+  // Fetch trades for viewed month
   useEffect(() => {
     const fetchTrades = async () => {
       setLoadingTrades(true);
@@ -291,7 +318,6 @@ function Dashboard({ user, onLogout }) {
   const monthStats = useMemo(() => {
     const daysInMonth = getDaysInMonth(viewYear, viewMonth);
     let totalPnl = 0, totalTrades = 0, winDays = 0, tradedDays = 0;
-    let maxAbs = 1;
     for (let d = 1; d <= daysInMonth; d++) {
       const k = dateKey(viewYear, viewMonth, d);
       const entry = trades[k];
@@ -302,11 +328,10 @@ function Dashboard({ user, onLogout }) {
         totalTrades += dayTrades;
         if (dayPnl > 0) winDays++;
         tradedDays++;
-        if (Math.abs(dayPnl) > maxAbs) maxAbs = Math.abs(dayPnl);
       }
     }
     return {
-      totalPnl, totalTrades, tradedDays, maxAbs,
+      totalPnl, totalTrades, tradedDays,
       winRate: tradedDays ? Math.round((winDays / tradedDays) * 100) : 0,
     };
   }, [trades, viewYear, viewMonth]);
@@ -317,7 +342,6 @@ function Dashboard({ user, onLogout }) {
   const cells = [];
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-
   const weeks = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
@@ -333,7 +357,11 @@ function Dashboard({ user, onLogout }) {
     const k = dateKey(viewYear, viewMonth, d);
     const entry = trades[k];
     if (!entry?.length) return null;
-    return { pnl: entry.reduce((s, t) => s + t.pnl, 0), trades: entry.reduce((s, t) => s + t.num_trades, 0), raw: entry[0] };
+    return {
+      pnl: entry.reduce((s, t) => s + t.pnl, 0),
+      trades: entry.reduce((s, t) => s + t.num_trades, 0),
+      raw: entry[0]
+    };
   };
 
   const openModal = (d, dow) => {
@@ -347,24 +375,30 @@ function Dashboard({ user, onLogout }) {
     if (!modal) return;
     const existing = trades[modal.dateKey]?.[0];
     if (existing) {
-      // Update existing
       const { data, error } = await supabase
         .from("trades")
         .update({ symbol: entry.symbol, side: entry.side, pnl: entry.pnl, num_trades: entry.num_trades, notes: entry.notes })
         .eq("id", existing.id)
         .select();
-      if (!error && data) {
-        setTrades(prev => ({ ...prev, [modal.dateKey]: [data[0]] }));
-      }
+      if (!error && data) setTrades(prev => ({ ...prev, [modal.dateKey]: [data[0]] }));
     } else {
-      // Insert new
       const { data, error } = await supabase
         .from("trades")
         .insert([{ ...entry, user_id: user.id }])
         .select();
-      if (!error && data) {
-        setTrades(prev => ({ ...prev, [modal.dateKey]: [data[0]] }));
-      }
+      if (!error && data) setTrades(prev => ({ ...prev, [modal.dateKey]: [data[0]] }));
+    }
+  };
+
+  const deleteTrade = async (id) => {
+    if (!modal) return;
+    const { error } = await supabase.from("trades").delete().eq("id", id);
+    if (!error) {
+      setTrades(prev => {
+        const updated = { ...prev };
+        delete updated[modal.dateKey];
+        return updated;
+      });
     }
   };
 
@@ -373,7 +407,6 @@ function Dashboard({ user, onLogout }) {
     onLogout();
   };
 
-  // Best / worst day
   let bestDay = null, worstDay = null;
   for (let d = 1; d <= daysInMonth; d++) {
     const data = getDayData(d);
@@ -384,13 +417,13 @@ function Dashboard({ user, onLogout }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#080808", color: "#e0e0e0",
+    <div style={{ minHeight: "100vh", background: "#030303", color: "#e0e0e0",
       fontFamily: "'Syne',sans-serif", paddingBottom: 80 }}>
 
       {/* Top bar */}
-      <div style={{ borderBottom: "1px solid #141414", padding: "18px 40px",
+      <div style={{ borderBottom: "1px solid #111", padding: "18px 40px",
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        background: "rgba(8,8,8,0.95)", backdropFilter: "blur(12px)",
+        background: "rgba(3,3,3,0.97)", backdropFilter: "blur(12px)",
         position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 28, height: 28, border: "1.5px solid #f0f0f0", borderRadius: 6,
@@ -405,11 +438,11 @@ function Dashboard({ user, onLogout }) {
             Hello, <span style={{ color: "#a0a0a0", fontWeight: 600 }}>{displayName}</span>
           </span>
           <button onClick={handleLogout}
-            style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid #1e1e1e",
-              background: "transparent", color: "#3a3a3a", cursor: "pointer",
+            style={{ padding: "7px 16px", borderRadius: 8, border: "1px solid #1a1a1a",
+              background: "transparent", color: "#333", cursor: "pointer",
               fontSize: 12, fontFamily: "'DM Mono',monospace", transition: "all 0.15s" }}
-            onMouseEnter={e => { e.target.style.color = "#888"; e.target.style.borderColor = "#333"; }}
-            onMouseLeave={e => { e.target.style.color = "#3a3a3a"; e.target.style.borderColor = "#1e1e1e"; }}>
+            onMouseEnter={e => { e.target.style.color = "#777"; e.target.style.borderColor = "#2a2a2a"; }}
+            onMouseLeave={e => { e.target.style.color = "#333"; e.target.style.borderColor = "#1a1a1a"; }}>
             Sign out
           </button>
         </div>
@@ -421,28 +454,24 @@ function Dashboard({ user, onLogout }) {
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 32 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 6 }}>
-              {[{ dir: -1, icon: "‹" }, { dir: 1, icon: "›" }].map(({ dir, icon }, idx) => (
-                idx === 0 ? (
-                  <button key={dir} onClick={() => goMonth(dir)} style={{
-                    width: 32, height: 32, borderRadius: 8, border: "1px solid #1e1e1e",
-                    background: "transparent", color: "#555", cursor: "pointer", fontSize: 18,
-                    display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
-                    onMouseEnter={e => { e.target.style.borderColor = "#333"; e.target.style.color = "#aaa"; }}
-                    onMouseLeave={e => { e.target.style.borderColor = "#1e1e1e"; e.target.style.color = "#555"; }}>
-                    {icon}
-                  </button>
-                ) : null
-              ))}
-              <h1 style={{ fontSize: 32, fontWeight: 800, color: "#f0f0f0",
-                letterSpacing: "-0.04em", margin: 0 }}>
-                {MONTHS[viewMonth]} <span style={{ color: "#2a2a2a" }}>{viewYear}</span>
-              </h1>
-              <button onClick={() => goMonth(1)} style={{
-                width: 32, height: 32, borderRadius: 8, border: "1px solid #1e1e1e",
+              <button onClick={() => goMonth(-1)} style={{
+                width: 32, height: 32, borderRadius: 8, border: "1px solid #1a1a1a",
                 background: "transparent", color: "#555", cursor: "pointer", fontSize: 18,
                 display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
-                onMouseEnter={e => { e.target.style.borderColor = "#333"; e.target.style.color = "#aaa"; }}
-                onMouseLeave={e => { e.target.style.borderColor = "#1e1e1e"; e.target.style.color = "#555"; }}>
+                onMouseEnter={e => { e.target.style.borderColor = "#2a2a2a"; e.target.style.color = "#aaa"; }}
+                onMouseLeave={e => { e.target.style.borderColor = "#1a1a1a"; e.target.style.color = "#555"; }}>
+                ‹
+              </button>
+              <h1 style={{ fontSize: 32, fontWeight: 800, color: "#f0f0f0",
+                letterSpacing: "-0.04em", margin: 0 }}>
+                {MONTHS[viewMonth]} <span style={{ color: "#222" }}>{viewYear}</span>
+              </h1>
+              <button onClick={() => goMonth(1)} style={{
+                width: 32, height: 32, borderRadius: 8, border: "1px solid #1a1a1a",
+                background: "transparent", color: "#555", cursor: "pointer", fontSize: 18,
+                display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}
+                onMouseEnter={e => { e.target.style.borderColor = "#2a2a2a"; e.target.style.color = "#aaa"; }}
+                onMouseLeave={e => { e.target.style.borderColor = "#1a1a1a"; e.target.style.color = "#555"; }}>
                 ›
               </button>
             </div>
@@ -455,7 +484,7 @@ function Dashboard({ user, onLogout }) {
           </div>
 
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, color: "#333", fontFamily: "'DM Mono',monospace",
+            <div style={{ fontSize: 11, color: "#2a2a2a", fontFamily: "'DM Mono',monospace",
               letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Monthly P&L</div>
             <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1,
               color: monthStats.totalPnl >= 0 ? "#4de894" : "#ff6b78" }}>
@@ -465,28 +494,27 @@ function Dashboard({ user, onLogout }) {
         </div>
 
         {/* Calendar */}
-        <div style={{ background: "#0c0c0c", border: "1px solid #161616", borderRadius: 20,
-          overflow: "hidden", boxShadow: "0 8px 48px rgba(0,0,0,0.4)", position: "relative" }}>
+        <div style={{ background: "#080808", border: "1px solid #141414", borderRadius: 20,
+          overflow: "hidden", boxShadow: "0 8px 48px rgba(0,0,0,0.6)", position: "relative" }}>
 
           {loadingTrades && (
-            <div style={{ position: "absolute", inset: 0, background: "rgba(8,8,8,0.7)",
-              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10,
-              borderRadius: 20 }}>
+            <div style={{ position: "absolute", inset: 0, background: "rgba(3,3,3,0.75)",
+              display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10, borderRadius: 20 }}>
               <span style={{ color: "#333", fontFamily: "'DM Mono',monospace", fontSize: 13 }}>Loading…</span>
             </div>
           )}
 
           {/* Weekday header */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr) 90px",
-            borderBottom: "1px solid #161616" }}>
+            borderBottom: "1px solid #141414" }}>
             {WEEKDAYS.map((d, i) => (
               <div key={d} style={{ padding: "14px 0", textAlign: "center", fontSize: 11,
                 fontFamily: "'DM Mono',monospace", letterSpacing: "0.08em", textTransform: "uppercase",
-                color: (i === 0 || i === 6) ? "#252525" : "#383838" }}>{d}</div>
+                color: (i === 0 || i === 6) ? "#1e1e1e" : "#2e2e2e" }}>{d}</div>
             ))}
             <div style={{ padding: "14px 0", textAlign: "center", fontSize: 11,
               fontFamily: "'DM Mono',monospace", letterSpacing: "0.08em", textTransform: "uppercase",
-              color: "#252525", borderLeft: "1px solid #161616" }}>Week</div>
+              color: "#1e1e1e", borderLeft: "1px solid #141414" }}>Week</div>
           </div>
 
           {/* Weeks */}
@@ -500,13 +528,14 @@ function Dashboard({ user, onLogout }) {
 
             return (
               <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr) 90px",
-                borderBottom: wi < weeks.length - 1 ? "1px solid #111" : "none" }}>
+                borderBottom: wi < weeks.length - 1 ? "1px solid #0e0e0e" : "none" }}>
                 {week.map((d, di) => {
                   const dow = d ? (firstDay + (d - 1)) % 7 : di;
                   const isWeekend = dow === 0 || dow === 6;
                   const dayData = getDayData(d);
-                  const colors = dayData ? getPnlColor(dayData.pnl, monthStats.maxAbs) : null;
-                  const isToday = d && viewYear === today.getFullYear() && viewMonth === today.getMonth() && d === today.getDate();
+                  const textColor = dayData ? getPnlTextColor(dayData.pnl) : null;
+                  const isToday = d && viewYear === today.getFullYear()
+                    && viewMonth === today.getMonth() && d === today.getDate();
                   const hKey = d ? `${wi}-${di}` : null;
 
                   return (
@@ -514,18 +543,18 @@ function Dashboard({ user, onLogout }) {
                       onMouseEnter={() => hKey && setHoveredDay(hKey)}
                       onMouseLeave={() => setHoveredDay(null)}
                       style={{ minHeight: 88, padding: "12px", boxSizing: "border-box",
-                        borderRight: "1px solid #111",
+                        borderRight: "1px solid #0e0e0e",
                         background: !d ? "transparent"
-                          : hoveredDay === hKey && !isWeekend ? "rgba(255,255,255,0.025)"
-                          : isWeekend ? "rgba(255,255,255,0.006)"
-                          : colors ? colors.bg : "transparent",
+                          : hoveredDay === hKey && !isWeekend ? "rgba(255,255,255,0.018)"
+                          : isWeekend ? "rgba(255,255,255,0.004)"
+                          : "transparent",
                         cursor: d && !isWeekend ? "pointer" : "default",
                         transition: "background 0.15s" }}>
                       {d && (
                         <>
                           <span style={{ fontSize: 13, fontWeight: 700,
                             fontFamily: "'DM Mono',monospace", display: "block", marginBottom: 6,
-                            color: isToday ? "#f0f0f0" : isWeekend ? "#252525" : "#383838" }}>
+                            color: isToday ? "#f0f0f0" : isWeekend ? "#1e1e1e" : "#303030" }}>
                             {d}
                             {isToday && <span style={{ display: "inline-block", width: 5, height: 5,
                               borderRadius: "50%", background: "#f0f0f0", marginLeft: 5,
@@ -535,15 +564,15 @@ function Dashboard({ user, onLogout }) {
                             <>
                               <span style={{ fontSize: 15, fontWeight: 800, display: "block",
                                 fontFamily: "'DM Mono',monospace", letterSpacing: "-0.02em",
-                                color: colors?.text }}>{fmt(dayData.pnl)}</span>
-                              <span style={{ fontSize: 10, color: "#2a2a2a", display: "block",
+                                color: textColor }}>{fmt(dayData.pnl)}</span>
+                              <span style={{ fontSize: 10, color: "#252525", display: "block",
                                 fontFamily: "'DM Mono',monospace", marginTop: 3 }}>
                                 {dayData.trades} trade{dayData.trades !== 1 ? "s" : ""}
                               </span>
                             </>
                           )}
                           {!dayData && !isWeekend && hoveredDay === hKey && (
-                            <span style={{ fontSize: 10, color: "#2a2a2a",
+                            <span style={{ fontSize: 10, color: "#252525",
                               fontFamily: "'DM Mono',monospace" }}>+ log</span>
                           )}
                         </>
@@ -553,17 +582,16 @@ function Dashboard({ user, onLogout }) {
                 })}
 
                 {/* Week total */}
-                <div style={{ borderLeft: "1px solid #161616", display: "flex",
+                <div style={{ borderLeft: "1px solid #141414", display: "flex",
                   alignItems: "center", justifyContent: "center" }}>
                   {hasWeekData ? (
                     <span style={{ fontSize: 12, fontWeight: 800,
                       fontFamily: "'DM Mono',monospace", letterSpacing: "-0.02em",
-                      color: weekPnl >= 0 ? "#3aaa6a" : "#cc4a56" }}>
+                      color: weekPnl >= 0 ? "#4de894" : "#ff6b78" }}>
                       {fmt(weekPnl)}
                     </span>
                   ) : (
-                    <span style={{ fontSize: 10, color: "#1e1e1e",
-                      fontFamily: "'DM Mono',monospace" }}>—</span>
+                    <span style={{ fontSize: 10, color: "#181818", fontFamily: "'DM Mono',monospace" }}>—</span>
                   )}
                 </div>
               </div>
@@ -581,9 +609,9 @@ function Dashboard({ user, onLogout }) {
             { label: "Win Rate", value: `${monthStats.winRate}%`,
               color: monthStats.winRate >= 50 ? "#4de894" : "#ff6b78" },
           ].map(({ label, value, color }) => (
-            <div key={label} style={{ flex: 1, background: "#0c0c0c", border: "1px solid #161616",
+            <div key={label} style={{ flex: 1, background: "#080808", border: "1px solid #141414",
               borderRadius: 12, padding: "16px 20px" }}>
-              <div style={{ fontSize: 10, color: "#2a2a2a", fontFamily: "'DM Mono',monospace",
+              <div style={{ fontSize: 10, color: "#252525", fontFamily: "'DM Mono',monospace",
                 letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
               <div style={{ fontSize: 22, fontWeight: 800, color, letterSpacing: "-0.03em" }}>{value}</div>
             </div>
@@ -593,22 +621,28 @@ function Dashboard({ user, onLogout }) {
 
       {/* Bottom label */}
       <div style={{ position: "fixed", bottom: 24, left: 32, fontFamily: "'DM Mono',monospace",
-        fontSize: 11, color: "#1e1e1e", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+        fontSize: 11, color: "#181818", letterSpacing: "0.12em", textTransform: "uppercase" }}>
         Dashboard
       </div>
 
       {modal && (
-        <LogTradeModal date={modal.date} dateStr={modal.dateStr}
-          existing={modal.existing} onSave={saveTrade} onClose={() => setModal(null)} />
+        <LogTradeModal
+          date={modal.date}
+          dateStr={modal.dateStr}
+          existing={modal.existing}
+          onSave={saveTrade}
+          onDelete={deleteTrade}
+          onClose={() => setModal(null)}
+        />
       )}
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500;600&display=swap');
         * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 6px; background: #080808; }
-        ::-webkit-scrollbar-thumb { background: #1e1e1e; border-radius: 3px; }
-        input::placeholder { color: #2a2a2a; }
-        textarea::placeholder { color: #2a2a2a; }
+        ::-webkit-scrollbar { width: 6px; background: #030303; }
+        ::-webkit-scrollbar-thumb { background: #181818; border-radius: 3px; }
+        input::placeholder { color: #222; }
+        textarea::placeholder { color: #222; }
       `}</style>
     </div>
   );
@@ -620,25 +654,21 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if already logged in (persists across page refresh)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
-
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#080808", display: "flex",
+      <div style={{ minHeight: "100vh", background: "#030303", display: "flex",
         alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "#222", fontFamily: "'DM Mono',monospace", fontSize: 13,
+        <div style={{ color: "#1e1e1e", fontFamily: "'DM Mono',monospace", fontSize: 13,
           letterSpacing: "0.1em" }}>Loading…</div>
       </div>
     );
