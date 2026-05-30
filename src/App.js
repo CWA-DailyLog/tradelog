@@ -113,6 +113,8 @@ function LogTradeModal({ date, dateStr, onSave, onDelete, onClose, existing }) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [lightbox, setLightbox] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const fileRef = useRef();
 
   const handleScreenshot = async (e) => {
@@ -239,22 +241,55 @@ function LogTradeModal({ date, dateStr, onSave, onDelete, onClose, existing }) {
 
         {/* Screenshot */}
         <Field label="Screenshot">
-          {screenshotUrl ? (
+          {screenshotUrl && !imgError ? (
             <div style={{ position: "relative" }}>
-              <img src={screenshotUrl} alt="Trade screenshot"
+              <img
+                src={screenshotUrl}
+                alt="Trade screenshot"
+                onError={() => setImgError(true)}
+                onClick={() => setLightbox(true)}
                 style={{ width: "100%", borderRadius: 8, border: "1px solid #2a2a2a",
-                  display: "block", maxHeight: 220, objectFit: "cover" }} />
-              <button onClick={removeScreenshot} style={{
-                position: "absolute", top: 8, right: 8, width: 28, height: 28,
-                borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.7)",
-                color: "#aaa", cursor: "pointer", fontSize: 14, display: "flex",
-                alignItems: "center", justifyContent: "center" }}>×</button>
-              <button onClick={() => fileRef.current?.click()} style={{
+                  display: "block", maxHeight: 220, objectFit: "cover",
+                  cursor: "zoom-in" }} />
+              <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6 }}>
+                <button onClick={() => setLightbox(true)} style={{
+                  width: 28, height: 28, borderRadius: "50%", border: "none",
+                  background: "rgba(0,0,0,0.75)", color: "#ccc", cursor: "pointer",
+                  fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  title="View full size">⤢</button>
+                <button onClick={removeScreenshot} style={{
+                  width: 28, height: 28, borderRadius: "50%", border: "none",
+                  background: "rgba(0,0,0,0.75)", color: "#ccc", cursor: "pointer",
+                  fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  title="Remove">×</button>
+              </div>
+              <button onClick={() => { setImgError(false); fileRef.current?.click(); }} style={{
                 marginTop: 8, width: "100%", padding: "8px", borderRadius: 8,
-                border: "1px solid #2a2a2a", background: "transparent", color: "#555",
+                border: "1px solid #2a2a2a", background: "transparent", color: "#444",
                 cursor: "pointer", fontFamily: "'DM Mono',monospace", fontSize: 12 }}>
                 Replace image
               </button>
+            </div>
+          ) : screenshotUrl && imgError ? (
+            <div style={{ padding: "16px", borderRadius: 8, border: "1px solid #2a2a2a",
+              background: "#0a0a0a", textAlign: "center" }}>
+              <div style={{ color: "#444", fontFamily: "'DM Mono',monospace", fontSize: 12,
+                marginBottom: 10 }}>Image saved — tap below to view or replace</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <a href={screenshotUrl} target="_blank" rel="noreferrer" style={{
+                  flex: 1, padding: "8px", borderRadius: 8, border: "1px solid #2a2a2a",
+                  background: "transparent", color: "#555", cursor: "pointer",
+                  fontFamily: "'DM Mono',monospace", fontSize: 12, textAlign: "center",
+                  textDecoration: "none", display: "block" }}>Open image ↗</a>
+                <button onClick={() => { setImgError(false); fileRef.current?.click(); }} style={{
+                  flex: 1, padding: "8px", borderRadius: 8, border: "1px solid #2a2a2a",
+                  background: "transparent", color: "#555", cursor: "pointer",
+                  fontFamily: "'DM Mono',monospace", fontSize: 12 }}>Replace</button>
+                <button onClick={removeScreenshot} style={{
+                  padding: "8px 12px", borderRadius: 8, border: "1px solid #2a2a2a",
+                  background: "transparent", color: "#555", cursor: "pointer",
+                  fontFamily: "'DM Mono',monospace", fontSize: 12 }}>✕</button>
+              </div>
             </div>
           ) : (
             <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{
@@ -271,6 +306,23 @@ function LogTradeModal({ date, dateStr, onSave, onDelete, onClose, existing }) {
           <input ref={fileRef} type="file" accept="image/*"
             onChange={handleScreenshot} style={{ display: "none" }} />
         </Field>
+
+        {/* Lightbox */}
+        {lightbox && screenshotUrl && (
+          <div onClick={() => setLightbox(false)} style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 2000, cursor: "zoom-out", padding: 20 }}>
+            <img src={screenshotUrl} alt="Trade screenshot full"
+              style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 8,
+                objectFit: "contain", boxShadow: "0 0 80px rgba(0,0,0,0.8)" }} />
+            <button onClick={() => setLightbox(false)} style={{
+              position: "fixed", top: 20, right: 20, width: 36, height: 36,
+              borderRadius: "50%", border: "1px solid #333", background: "#111",
+              color: "#aaa", cursor: "pointer", fontSize: 18,
+              display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+          </div>
+        )}
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
